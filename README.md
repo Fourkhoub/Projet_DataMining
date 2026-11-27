@@ -132,10 +132,115 @@ Le notebook lit les fichiers bruts, applique les décisions dans un ordre préci
 ## 2. Les neuf questions
 
 ### Q1 — Qu'est-ce qui fait vraiment le remplissage ?
-*À compléter : compréhension, méthode, justification, vérifications, conclusion, recommandation.*
+
+Notebook : `Question1.ipynb`
+
+**Ce que nous avons compris de la question.** La direction veut savoir quels facteurs expliquent le taux de remplissage (billets vendus / capacité) : le prix, la notoriété de l'artiste, le genre, le jour de programmation ou la salle. « Vraiment » signifie séparer l'effet propre de chaque facteur au lieu de lire des corrélations simples : un artiste très connu fait payer plus cher *et* remplit davantage, le prix ne peut donc pas être jugé isolément. L'analyse porte sur 93 événements (96 moins les 3 événements aux ventes inconnues), dont 5 complets.
+
+**Méthode.**
+1. **Comprendre la cible** : distribution du taux de remplissage et statistiques descriptives.
+2. **Regarder chaque facteur seul** : nuages de points pour le prix et la notoriété ; moyennes et boîtes à moustaches par genre, par jour et par capacité.
+3. **Régression linéaire multiple** du taux de remplissage sur le prix moyen, la notoriété, le genre, la capacité (catégorielle) et le jour de la semaine. Les coefficients, leurs intervalles de confiance à 95 % et leurs p-values se lisent « toutes choses égales par ailleurs ». Les modalités de référence sont fixées explicitement : le genre et le jour les plus fréquents, et 6 500 places pour la capacité.
+4. **Mesurer l'importance relative** de chaque facteur : on le retire du modèle et on regarde la perte de R² ajusté. On calcule aussi l'effet d'un écart-type du prix et de la notoriété, pour les comparer entre eux.
+5. **Valider le modèle** par validation croisée à 5 plis, en comparant la régression linéaire complète, la même régression sans le prix, et un **KNN** (5 voisins). Un découpage classique 80 % / 20 % complète le contrôle.
+6. **Tester la robustesse** : le modèle est réestimé sans les 5 événements complets, et on compare les coefficients du prix et de la notoriété.
+
+**Pourquoi ces choix.**
+
+| Choix | Justification |
+|---|---|
+| Régression linéaire multiple | Les coefficients se lisent directement et isolent l'effet de chaque facteur, ce qu'une corrélation simple ne permet pas |
+| Capacité traitée comme catégorielle | Ce sont 3 jauges fixes (6 500, 9 800, 15 800 places), pas une variable continue |
+| `jour_semaine` plutôt que `date` | Les deux colonnes se contredisent dans 81 cas sur 98 (voir 1.1) ; `jour_semaine` a le profil le plus plausible |
+| Modalités de référence fixées | Sans cela, l'ordre alphabétique place `15800` en référence pour la capacité et les coefficients deviennent difficiles à lire |
+| Validation croisée | Avec 93 événements, un seul découpage apprentissage / test est trop dépendant du tirage ; le R² calculé sur les données d'estimation est optimiste |
+| KNN comme point de comparaison | Si le KNN, qui ne suppose aucune forme de relation, ne prédit pas mieux que la régression, l'hypothèse de linéarité est suffisante |
+| Régression sans le prix | Si la qualité de prédiction ne baisse pas, le prix n'apporte rien au remplissage une fois les autres facteurs connus |
+| K-means et DBSCAN non utilisés | Ce sont des méthodes non supervisées (groupes, anomalies) : elles ne répondent pas à une question d'explication d'une variable cible |
+
+**Vérifications.**
+- Le notebook affiche le nombre d'événements analysés (93 attendus) et de complets (5 attendus), et s'arrête si la capacité de référence est absente.
+- Le graphique des résidus contrôle qu'ils sont répartis autour de 0 sans forme nette (entonnoir, courbure).
+- La validation croisée se compare à une référence naïve : un modèle qui ne bat pas la prédiction « toujours la moyenne » n'explique rien.
+- Les 5 événements complets sont plafonnés à 100 % : on vérifie que les conclusions tiennent sans eux.
+
+**Résultats.** Les valeurs sont à reporter depuis les sorties du notebook après exécution :
+
+| Élément | Valeur |
+|---|---|
+| Facteurs significatifs à 5 % dans le modèle | … |
+| Facteur qui apporte le plus de R² ajusté | … |
+| R² (validation croisée) : régression complète / sans prix / KNN | … |
+| Coefficient du prix avec / sans les événements complets | … |
+
+**Conclusion.** Le remplissage ne se réduit pas à un seul facteur. Nous retenons comme facteurs réellement associés au remplissage ceux qui remplissent les trois critères à la fois : significatifs dans le modèle, importants dans le classement par R² ajusté, stables sans les événements complets. Si retirer le prix ne dégrade pas la prédiction, le prix ne doit pas être présenté comme le levier principal du remplissage.
+
+**Recommandations.**
+1. **Agir en priorité sur les facteurs qui ressortent dans les trois contrôles** (modèle, importance, robustesse), plutôt que sur le prix seul.
+2. **Présenter comme une piste, et non comme un levier établi,** tout facteur qui n'est significatif que dans un seul contrôle.
+3. **Ne pas lire le taux de remplissage des soirées complètes comme une demande maximale** : le taux plafonne à 100 % alors que la demande peut le dépasser.
+
+**Limites.**
+- L'analyse est **observationnelle** : une association ne prouve pas qu'agir sur un facteur provoquerait la variation observée.
+- Les **événements complets sont plafonnés à 100 %** : une partie de la demande réelle est masquée. Le test sans ces événements mesure l'effet de ce plafond sans le supprimer.
+- L'échantillon est **petit** (93 événements pour une quinzaine de paramètres) : les coefficients par modalité sont peu précis, et les moyennes par genre ou par jour reposent sur peu d'événements.
+- Le **jour de la semaine** est retenu sur un critère de plausibilité (incohérent avec la date dans 81 cas sur 98).
+- Le **prix est choisi par les organisateurs** selon l'artiste et la salle : son coefficient n'est pas un effet causal.
 
 ### Q2 — Augmenter le prix de 10 % changerait-il les ventes ?
-*À compléter.*
+
+Notebook : `Question2.ipynb`
+
+**Ce que nous avons compris de la question.** La direction veut savoir si une hausse de 10 % du prix moyen serait associée à une variation du nombre de billets vendus, et si le chiffre d'affaires y gagnerait malgré une éventuelle baisse des ventes. Il s'agit d'une **simulation** : on prédit les ventes de chaque événement au prix actuel, puis au prix augmenté de 10 %, toutes les autres caractéristiques restant identiques. L'analyse porte sur les mêmes 93 événements que Q1.
+
+**Méthode.**
+1. **Visualiser la relation** entre le prix moyen et les billets vendus (nuage de points).
+2. **Régression linéaire** des ventes sur le prix, la notoriété, le genre, le jour et la capacité (catégorielle). Les variables numériques sont standardisées et les catégorielles encodées en colonnes 0 / 1. Le modèle est évalué sur un découpage 80 % / 20 % (MAE et R²).
+3. **KNN** (régression, 5 voisins) avec la même préparation des variables et le même découpage, pour comparer les deux méthodes sur les mêmes événements de test.
+4. **Simuler la hausse** : `prix_moyen_eur` est multiplié par 1,10 pour chaque événement, et les deux modèles prédisent les ventes avant et après. La variation est calculée par événement, en billets et en pourcentage.
+5. **Bilan global** : ventes moyennes prédites avant et après, pour les deux modèles.
+6. **Effet sur le chiffre d'affaires**, approché par prix moyen × billets prédits, avant et après la hausse.
+
+**Pourquoi ces choix.**
+
+| Choix | Justification |
+|---|---|
+| Deux modèles de nature différente | La régression linéaire suppose un effet constant du prix ; le KNN estime les ventes à partir d'événements similaires, sans supposer de forme. Si les deux convergent, la conclusion est plus solide |
+| Standardisation des variables numériques | Indispensable au KNN, qui repose sur des distances : sans elle, la variable à plus grande échelle écraserait les autres |
+| Capacité encodée comme catégorie | Trois jauges fixes (6 500, 9 800, 15 800 places) |
+| Ventes en nombre de billets | La question porte sur les ventes et sur le chiffre d'affaires, qui s'obtient en multipliant les billets par le prix |
+| Modification du seul prix | Toutes les autres caractéristiques de l'événement restent identiques pour isoler l'effet de la hausse |
+| K-means et DBSCAN non utilisés | Méthodes non supervisées : elles ne prédisent pas de ventes |
+
+**Vérifications.**
+- Les performances des deux modèles sont comparées sur les mêmes événements de test (MAE et R²) : un modèle qui prédit mal ne peut pas servir à simuler.
+- Les deux méthodes sont confrontées : si elles donnent des variations de sens opposé, la conclusion n'est pas établie.
+- Le chiffre d'affaires est calculé avec le prix correspondant à chaque scénario (prix actuel avant, prix majoré après).
+
+**Résultats.** Les valeurs sont à reporter depuis les sorties du notebook après exécution :
+
+| Modèle | MAE (test) | R² (test) | Variation des ventes | Variation du chiffre d'affaires |
+|---|---|---|---|---|
+| Régression linéaire | … | … | … % | … % |
+| KNN (k = 5) | … | … | … % | … % |
+
+**Comment lire le résultat.** Une hausse de 10 % augmente le chiffre d'affaires tant que les ventes baissent de **moins de 9,1 %** (seuil égal à 1 − 1/1,10). L'élasticité-prix approchée est la variation des ventes en pourcentage divisée par 10.
+
+**Conclusion.** La décision s'appuie sur les deux modèles et sur leurs performances : une variation est jugée crédible si les deux méthodes vont dans le même sens et si le modèle prédit mieux que le hasard. Si les ventes baissent de moins de 9,1 %, la hausse de 10 % reste économiquement intéressante malgré la baisse des quantités ; au-delà, le chiffre d'affaires diminue aussi.
+
+**Recommandations.**
+1. **Ne pas appliquer +10 % à toute la programmation** sur la seule base de cette simulation.
+2. **Tester la hausse sur quelques événements non complets**, en gardant des événements comparables au prix actuel, puis comparer les ventes et le chiffre d'affaires.
+3. **Si les deux modèles donnent une baisse des ventes, aborder la hausse avec prudence** ; si le chiffre d'affaires augmente malgré cette baisse, confirmer le résultat avec une expérimentation ou des données historiques comparables avant de généraliser.
+
+**Limites.**
+- La simulation repose sur des **données observationnelles** : elle mesure une association entre prix et ventes, pas un effet causal. Les organisateurs fixent les prix selon l'artiste et la salle, ce qui peut fausser l'effet apparent du prix.
+- Les **5 événements complets sont plafonnés par la capacité** : leurs ventes mesurent la jauge et non la demande. Une hausse de prix peut avoir sur la demande réelle un effet qui n'apparaît pas dans les ventes observées.
+- Les prédictions ne sont **pas bornées** entre 0 et la capacité : un modèle linéaire peut prédire plus de billets que la salle n'en contient.
+- Le **KNN prédit une valeur constante par morceaux** : une hausse de 10 % ne change sa prédiction que si elle modifie les 5 événements voisins, ce qui peut donner un effet nul ou irrégulier.
+- Le jeu de test ne compte qu'**une vingtaine d'événements** : le MAE et le R² varient fortement d'un tirage à l'autre.
+- La simulation donne une **estimation sans intervalle d'incertitude**.
+- Le chiffre d'affaires est **approché** par le prix moyen multiplié par les billets prédits : le prix réellement payé varie selon la place (rapport moyen de 1,00 avec le prix moyen, de 0,59 à 1,49 selon les billets).
 
 ### Q3 — Combien de billets annoncer au producteur trois mois avant ?
 *À compléter.*
